@@ -18,3 +18,4 @@ sdk-tests/certs/unittest_private.key
 upload-fail-save.log
 local_fw_info.json
 ota.bin
+*.swp

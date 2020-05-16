@@ -39,9 +39,9 @@ ifeq ($(FEATURE_AUTH_MODE),CERT)
 CFLAGS += -DAUTH_MODE_CERT
 endif
 
-.PHONY: mqtt_sample ota_mqtt_sample ota_coap_sample shadow_sample coap_sample gateway_sample multi_thread_mqtt_sample dynreg_dev_sample multi_client
+.PHONY: pms7003_sample mqtt_sample ota_mqtt_sample ota_coap_sample shadow_sample coap_sample gateway_sample multi_thread_mqtt_sample dynreg_dev_sample multi_client
 
-all: mqtt_sample ota_mqtt_sample ota_coap_sample shadow_sample coap_sample gateway_sample multi_thread_mqtt_sample dynreg_dev_sample multi_client
+all: pms7003_sample mqtt_sample ota_mqtt_sample ota_coap_sample shadow_sample coap_sample gateway_sample multi_thread_mqtt_sample dynreg_dev_sample multi_client
 
 ifneq (,$(filter -DMQTT_COMM_ENABLED,$(CFLAGS)))
 mqtt_sample:
@@ -115,6 +115,14 @@ shadow_sample:
 	mv aircond_$@_v2 $(FINAL_DIR)/bin
 endif
 
+ifneq (,$(filter -DMQTT_DEVICE_SHADOW,$(CFLAGS)))
+pms7003_sample:
+	$(TOP_Q) \
+	$(PLATFORM_CC) $(CFLAGS) $(SAMPLE_DIR)/pms7003/$@.c $(LDFLAGS) -o $@
+	
+	$(TOP_Q) \
+	mv $@ $(FINAL_DIR)/bin 
+endif
 
 ifneq (,$(filter -DGATEWAY_ENABLED,$(CFLAGS)))
 gateway_sample:
