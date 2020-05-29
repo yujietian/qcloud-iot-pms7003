@@ -6,6 +6,7 @@ SUBDIRS         := directory-not-exist-actually
 # Settings of input directory
 SCRIPT_DIR      := $(TOP_DIR)/tools/build_scripts
 
+
 include $(TOP_DIR)/make.settings
 include $(SCRIPT_DIR)/parse_make_settings.mk
 
@@ -23,7 +24,7 @@ SAMPLE_DIR		:= $(CURDIR)
 FINAL_DIR       := $(CURDIR)/../output/$(BUILD_TYPE)
 
 IOT_LIB_DIR = $(FINAL_DIR)/lib
-IOT_INC_CFLAGS = -I$(FINAL_DIR)/include -I$(FINAL_DIR)/include/exports
+IOT_INC_CFLAGS = -I$(FINAL_DIR)/include -I$(FINAL_DIR)/include/exports -I$(CURDIR)/pms7003
 
 LDFLAGS             := -Wl,--start-group $(IOT_LIB_DIR)/libiot_sdk.a
 ifeq ($(FEATURE_AUTH_WITH_NOTLS),n)
@@ -31,6 +32,9 @@ LDFLAGS             += $(IOT_LIB_DIR)/libmbedtls.a $(IOT_LIB_DIR)/libmbedx509.a 
 endif
 LDFLAGS             += $(IOT_LIB_DIR)/libiot_platform.a -Wl,--end-group
 
+PMS7003_COMPONENTS := $(CURDIR)/pms7003
+PMS7003_SRC_FILES := $(foreach v, $(PMS7003_COMPONENTS), $(wildcard $(v)/*.c) )
+pms7003_objects = $(patsubst %.c,%.o, $(PMS7003_SRC_FILES))
 
 CFLAGS += -Wall -Wno-error=sign-compare -Wno-error=format -Os -pthread -DFORCE_SSL_VERIFY
 CFLAGS += ${IOT_INC_CFLAGS}
@@ -116,12 +120,15 @@ shadow_sample:
 endif
 
 ifneq (,$(filter -DMQTT_DEVICE_SHADOW,$(CFLAGS)))
-pms7003_sample:
+pms7003_sample:${pms7003_objects}
+	$(call Brief_Log,"CC")
 	$(TOP_Q) \
-	$(PLATFORM_CC) $(CFLAGS) $(SAMPLE_DIR)/pms7003/$@.c $(LDFLAGS) -o $@
+	$(PLATFORM_CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 	
 	$(TOP_Q) \
-	mv $@ $(FINAL_DIR)/bin 
+	cp $@ $(FINAL_DIR)/bin 
+	$(TOP_Q) \
+	rm $@ $(pms7003_objects)
 endif
 
 ifneq (,$(filter -DGATEWAY_ENABLED,$(CFLAGS)))
@@ -160,6 +167,11 @@ endif
 endif
 
 endif
+
+${pms7003_objects}:%.o:%.c
+	$(call Brief_Log,"CC")
+	$(TOP_Q) \
+	$(PLATFORM_CC) $(CFLAGS) -c $^ -o $@
 
 clean:
 	rm -rf $(FINAL_DIR)/bin/*

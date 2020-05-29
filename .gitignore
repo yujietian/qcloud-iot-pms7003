@@ -19,3 +19,5 @@ upload-fail-save.log
 local_fw_info.json
 ota.bin
 *.swp
+cscope.*
+tags
