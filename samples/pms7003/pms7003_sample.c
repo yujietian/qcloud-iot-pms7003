@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hal_uart.h"
 #include "qcloud_iot_export.h"
 
 void OnDeltaCallback(void *pClient, const char *pJsonValueBuffer, uint32_t valueLength, DeviceProperty *pProperty)

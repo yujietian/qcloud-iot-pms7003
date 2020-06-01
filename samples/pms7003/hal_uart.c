@@ -114,7 +114,7 @@ int serial_open(char *comport, int bandrate,int nBits,char nEvent,int nStop )
   option.c_cflag |= CSTOPB;
 
   option.c_cc[VTIME] = 1;
-  option.c_cc[VMIN] = 256;
+  option.c_cc[VMIN] = 255;
 
   tcflush(Tmpfd,TCIFLUSH);
 

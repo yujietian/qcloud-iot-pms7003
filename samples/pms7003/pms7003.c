@@ -64,8 +64,8 @@ int pms7003Init(void)
 {
     char recvBuff[BUFF_LEN] = {0};
     int uartHandl = 0;
-    int fd = 0;
-    int i = 0;
+    //int fd = 0;
+    //int i = 0;
     int recvLen = 0;
     fd_set recvFDs;
     pms7003Data_t *pmsData = NULL;
@@ -87,13 +87,13 @@ int pms7003Init(void)
         timeOut.tv_usec = 0;
         if(select(uartHandl+1, &recvFDs, NULL, NULL, &timeOut) > 0) {
             if(FD_ISSET(uartHandl, &recvFDs)) {
-                memset(recvBuff, 0, BUFF_LEN);
-                recvLen = serial_read(uartHandl, recvBuff, BUFF_LEN);
+                memset((uint8_t *)recvBuff, 0, BUFF_LEN);
+                recvLen = serial_read(uartHandl, (unsigned char*)recvBuff, BUFF_LEN);
                 if(recvLen > 0) {
-                    showBuff(recvBuff, sizeof(pms7003Data_t));
+                    showBuff((uint8_t *)recvBuff, sizeof(pms7003Data_t));
                     pmsData = (pms7003Data_t *)recvBuff;
-                    printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode(recvBuff, sizeof(pms7003Data_t)));
-                    if(exchangeWord(pmsData->checkCode) == getCheckCode(recvBuff, sizeof(pms7003Data_t))) {
+                    printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode((uint8_t *)recvBuff, sizeof(pms7003Data_t)));
+                    if(exchangeWord(pmsData->checkCode) == getCheckCode((uint8_t *)recvBuff, sizeof(pms7003Data_t))) {
                         printf("PM2.5 Value is %d\n", exchangeWord(pmsData->data[PM25]));
                     }
                 }
