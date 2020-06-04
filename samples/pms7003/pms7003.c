@@ -1,33 +1,11 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
 #include <sys/time.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
+
 #include "hal_uart.h"
+#include "pms7003.h"
 
-#define PM25 1
-#define DATA_LEN 13
-#define BUFF_LEN 256
-#define UART_DEVICE "/dev/ttyUSB0"
-
-#pragma pack(1)
-typedef struct {
-    uint8_t  startChar1;
-    uint8_t  startChar2;
-    uint16_t length;
-    uint16_t data[DATA_LEN];
-    uint16_t checkCode;
-}pms7003Data_t;
-
-typedef struct {
-    uint8_t  startChar1;
-    uint8_t  startChar2;
-    uint8_t  cmd;
-    uint16_t data;
-    uint16_t checkCode;
-}pms7003Ctl_t;
-#pragma pack()
+pms7003Info_t pms7003;
 
 uint16_t getCheckCode(uint8_t *data, uint16_t len)
 {
@@ -60,48 +38,111 @@ void showBuff(uint8_t *buff, uint16_t len)
 
 }
 
-int pms7003Init(void)
+void pms7003Init(int8_t mode)
 {
-    char recvBuff[BUFF_LEN] = {0};
-    int uartHandl = 0;
-    //int fd = 0;
-    //int i = 0;
-    int recvLen = 0;
+    int fd = 0;
+    int i = 0;
+    int result = 0;
     fd_set recvFDs;
-    pms7003Data_t *pmsData = NULL;
     struct timeval timeOut;
+    pms7003Ctl_t pms7003Ctl;
+    pms7003Data_t *pmsData = NULL;
 
-    uartHandl = serial_open(UART_DEVICE, 9600, 8, 'N', 1);
-    if(uartHandl < 0) {
+    pms7003.uartHandle = serial_open(UART_DEVICE, UART_BIT_RATE, 8, 'N', 1);
+    if(pms7003.uartHandle < 0) {
         printf("Failed to open %s\n", UART_DEVICE);
     }
 
+    if(mode == 0) {
+        pms7003Ctl.startChar1 = PROTO_START_1;
+        pms7003Ctl.startChar2 = PROTO_START_2;
+        pms7003Ctl.cmd = PROTO_CMD_DATA_MODE;
+        pms7003Ctl.data = exchangeWord(PROTO_DATA_MODE_READ);
+        pms7003Ctl.checkCode = exchangeWord(getCheckCode((uint8_t *)&pms7003Ctl, sizeof(pms7003Ctl_t)));
+        showBuff((uint8_t *)&pms7003Ctl, sizeof(pms7003Ctl_t));
+
+        result = serial_write(pms7003.uartHandle, (uint8_t *)&pms7003Ctl, sizeof(pms7003Ctl_t));
+        if(result > 0) {
+            while(1) {
+                FD_ZERO(&recvFDs);
+                FD_SET(pms7003.uartHandle, &recvFDs);
+                timeOut.tv_sec = TIMEOUT_RECV_SEC;
+                timeOut.tv_usec = TIMEOUT_RECV_USEC;
+
+                if(select(pms7003.uartHandle+1, &recvFDs, NULL, NULL, &timeOut) > 0) {
+                    if(FD_ISSET(pms7003.uartHandle, &recvFDs)) {
+                        memset(pms7003.recvBuff, 0, BUFF_LEN);
+                        pms7003.recvLen = serial_read(pms7003.uartHandle, pms7003.recvBuff, BUFF_LEN);
+                        if(pms7003.recvLen > 0) {
+                            showBuff(pms7003.recvBuff, sizeof(pms7003Data_t));
+                            pmsData = (pms7003Data_t *)pms7003.recvBuff;
+                            printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode(pms7003.recvBuff, sizeof(pms7003Data_t)));
+                            if(exchangeWord(pmsData->checkCode) == getCheckCode(pms7003.recvBuff, sizeof(pms7003Data_t))) {
+                                printf("PM2.5 Value is %d\n", exchangeWord(pmsData->data[PM25]));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     //printf("uart handle is %d\n", uartHandl);
+}
 
-    while(1) {
-        FD_ZERO(&recvFDs);
-        FD_SET(uartHandl, &recvFDs);
+void pms7003Exit(void)
+{
+    serial_close(pms7003.uartHandle);
+}
 
-        //delay 1S
-        timeOut.tv_sec = 1;
-        timeOut.tv_usec = 0;
-        if(select(uartHandl+1, &recvFDs, NULL, NULL, &timeOut) > 0) {
-            if(FD_ISSET(uartHandl, &recvFDs)) {
-                memset((uint8_t *)recvBuff, 0, BUFF_LEN);
-                recvLen = serial_read(uartHandl, (unsigned char*)recvBuff, BUFF_LEN);
-                if(recvLen > 0) {
-                    showBuff((uint8_t *)recvBuff, sizeof(pms7003Data_t));
-                    pmsData = (pms7003Data_t *)recvBuff;
-                    printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode((uint8_t *)recvBuff, sizeof(pms7003Data_t)));
-                    if(exchangeWord(pmsData->checkCode) == getCheckCode((uint8_t *)recvBuff, sizeof(pms7003Data_t))) {
-                        printf("PM2.5 Value is %d\n", exchangeWord(pmsData->data[PM25]));
+int16_t pms7003GetValue(int8_t dataType)
+{
+    int8_t  recvBuff[BUFF_LEN];
+    int32_t recvLen;
+    fd_set recvFDs;
+    int ret = 0;
+    int result = 0;
+    struct timeval timeOut;
+    pms7003Data_t *pmsData = NULL;
+    pms7003Ctl_t pms7003Ctl;
+    int16_t value = 0;
+
+    pms7003Ctl.startChar1 = PROTO_START_1;
+    pms7003Ctl.startChar2 = PROTO_START_2;
+    pms7003Ctl.cmd = PROTO_CMD_READ_DATA;
+    //pms7003Ctl.data = exchangeWord(PROTO_DATA_MODE_READ);
+    pms7003Ctl.checkCode = exchangeWord(getCheckCode((uint8_t *)&pms7003Ctl, sizeof(pms7003Ctl_t)));
+    result = serial_write(pms7003.uartHandle, (uint8_t *)&pms7003Ctl, sizeof(pms7003Ctl_t));
+    if(result > 0) {
+        while(1) {
+            FD_ZERO(&recvFDs);
+            FD_SET(pms7003.uartHandle, &recvFDs);
+            timeOut.tv_sec = TIMEOUT_RECV_SEC;
+            timeOut.tv_usec = TIMEOUT_RECV_USEC;
+            
+            ret = select(pms7003.uartHandle+1, &recvFDs, NULL, NULL, &timeOut);
+            if(ret == 0) {
+                printf("recv timeout %d.%d\n", timeOut.tv_sec, timeOut.tv_usec);
+                break;
+            } else if(ret == -1) {
+                break;
+            } else {
+                if(FD_ISSET(pms7003.uartHandle, &recvFDs)) {
+                    memset(recvBuff, 0, BUFF_LEN);
+                    recvLen = serial_read(pms7003.uartHandle, recvBuff, BUFF_LEN);
+                    if(recvLen > 0) {
+                        showBuff(recvBuff, sizeof(pms7003Data_t));
+                        pmsData = (pms7003Data_t *)recvBuff;
+                        printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode(recvBuff, sizeof(pms7003Data_t)));
+                        if(exchangeWord(pmsData->checkCode) == getCheckCode(recvBuff, sizeof(pms7003Data_t))) {
+                            value = exchangeWord(pmsData->data[dataType]);
+                            printf("PM2.5 Value is %d\n", value);
+                            break;
+                        }
                     }
                 }
             }
         }
     }
 
-    serial_close(uartHandl);
-
-    return 0;
+    return value;
 }

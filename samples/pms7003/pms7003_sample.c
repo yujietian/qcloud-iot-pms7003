@@ -20,6 +20,7 @@
 
 #include "hal_uart.h"
 #include "qcloud_iot_export.h"
+#include "pms7003.h"
 
 void OnDeltaCallback(void *pClient, const char *pJsonValueBuffer, uint32_t valueLength, DeviceProperty *pProperty)
 {
@@ -180,9 +181,11 @@ int demo_device_shadow()
 
 int main()
 {
-    IOT_Log_Set_Level(eLOG_DEBUG);
+    pms7003Init(0);
 
-    demo_device_shadow();
+    //IOT_Log_Set_Level(eLOG_DEBUG);
+
+    //demo_device_shadow();
 
     return 0;
 }
