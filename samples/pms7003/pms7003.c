@@ -40,8 +40,6 @@ void showBuff(uint8_t *buff, uint16_t len)
 
 void pms7003Init(int8_t mode)
 {
-    int fd = 0;
-    int i = 0;
     int result = 0;
     fd_set recvFDs;
     struct timeval timeOut;
@@ -76,8 +74,8 @@ void pms7003Init(int8_t mode)
                         if(pms7003.recvLen > 0) {
                             showBuff(pms7003.recvBuff, sizeof(pms7003Data_t));
                             pmsData = (pms7003Data_t *)pms7003.recvBuff;
-                            printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode(pms7003.recvBuff, sizeof(pms7003Data_t)));
-                            if(exchangeWord(pmsData->checkCode) == getCheckCode(pms7003.recvBuff, sizeof(pms7003Data_t))) {
+                            printf("checkCode/getCheckCode = %x,%x\n", exchangeWord(pmsData->checkCode), getCheckCode((uint8_t *)pms7003.recvBuff, sizeof(pms7003Data_t)));
+                            if(exchangeWord(pmsData->checkCode) == getCheckCode((uint8_t *)pms7003.recvBuff, sizeof(pms7003Data_t))) {
                                 printf("PM2.5 Value is %d\n", exchangeWord(pmsData->data[PM25]));
                             }
                         }
@@ -96,7 +94,7 @@ void pms7003Exit(void)
 
 int16_t pms7003GetValue(int8_t dataType)
 {
-    int8_t  recvBuff[BUFF_LEN];
+    uint8_t  recvBuff[BUFF_LEN];
     int32_t recvLen;
     fd_set recvFDs;
     int ret = 0;
@@ -121,14 +119,14 @@ int16_t pms7003GetValue(int8_t dataType)
             
             ret = select(pms7003.uartHandle+1, &recvFDs, NULL, NULL, &timeOut);
             if(ret == 0) {
-                printf("recv timeout %d.%d\n", timeOut.tv_sec, timeOut.tv_usec);
+                printf("recv timeout %ld.%ld\n", timeOut.tv_sec, timeOut.tv_usec);
                 break;
             } else if(ret == -1) {
                 break;
             } else {
                 if(FD_ISSET(pms7003.uartHandle, &recvFDs)) {
                     memset(recvBuff, 0, BUFF_LEN);
-                    recvLen = serial_read(pms7003.uartHandle, recvBuff, BUFF_LEN);
+                    recvLen = serial_read(pms7003.uartHandle, (unsigned char *)recvBuff, BUFF_LEN);
                     if(recvLen > 0) {
                         showBuff(recvBuff, sizeof(pms7003Data_t));
                         pmsData = (pms7003Data_t *)recvBuff;

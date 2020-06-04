@@ -25,7 +25,7 @@
 
 #pragma pack(1)
 typedef struct {
-    int8_t  recvBuff[BUFF_LEN];
+    uint8_t recvBuff[BUFF_LEN];
     int32_t uartHandle;
     int32_t recvLen;
 }pms7003Info_t;
